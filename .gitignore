@@ -1,0 +1,13 @@
+# Python ignore patterns
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environment
+venv/
+env/
+.env
+
+# IDE settings
+.vscode/
+.idea/
