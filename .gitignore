@@ -1,13 +1,27 @@
-# Python ignore patterns
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
-
-# Virtual Environment
+*.so
+.Python
 venv/
 env/
-.env
+ENV/
 
-# IDE settings
+# Environment
+.env
+.env.local
+
+# IDE
 .vscode/
 .idea/
+*.swp
+*.swo
+
+# Database
+*.db
+*.sqlite3
+
+# Logs
+*.log
+logs/
