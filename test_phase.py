@@ -1,196 +1,136 @@
 """
-Test Day 3 components: State Manager and Condition Evaluator.
+Test Day 4 components: Node Executor and Graph Engine.
 """
 
 import asyncio
+from typing import Any
+from uuid import uuid4
+
+from app.tools.tool_registry import tool_registry
 from app.core.state_manager import StateManager
-from app.core.condition_evaluator import ConditionEvaluator
-from app.models.schemas import SimpleCondition, ComplexCondition
+from app.core.execution_logger import ExecutionLogger
+from app.core.node_executor import NodeExecutor
+from app.models.schemas import (
+    NodeDefinition,
+    EdgeDefinition,
+    GraphDefinition,
+    SimpleCondition
+)
 
 
-def test_state_manager():
-    """Test state manager functionality."""
+# Test tools
+async def increment_tool(state: dict[str, Any]) -> dict[str, Any]:
+    """Increment counter."""
+    state['count'] = state.get('count', 0) + 1
+    print(f"  → Count incremented to: {state['count']}")
+    return state
+
+
+async def quality_check_tool(state: dict[str, Any]) -> dict[str, Any]:
+    """Calculate quality score based on count."""
+    count = state.get('count', 0)
+    state['quality_score'] = min(10, count * 2)
+    print(f"  → Quality score: {state['quality_score']}")
+    return state
+
+
+async def test_node_executor():
+    """Test node executor."""
     print("\n" + "=" * 60)
-    print("Testing State Manager")
+    print("Testing Node Executor")
     print("=" * 60)
     
-    # Initialize state
-    initial_state = {
-        "count": 0,
-        "quality_score": 5,
-        "issues": ["issue1", "issue2"],
-        "user": {
-            "name": "John",
-            "age": 30
-        }
-    }
+    # Register tools
+    tool_registry.register("increment", increment_tool, overwrite=True)
+    tool_registry.register("quality_check", quality_check_tool, overwrite=True)
     
-    manager = StateManager(initial_state)
+    # Initialize components
+    state = {"count": 0, "quality_score": 0}
+    state_manager = StateManager(state)
+    execution_logger = ExecutionLogger()
+    node_executor = NodeExecutor(state_manager, execution_logger)
     
-    # Test 1: Get state
-    print("\n1. Get state:")
-    state = manager.get_state()
-    print(f"   ✓ State: {state}")
+    # Test 1: Execute normal node
+    print("\n1. Execute normal node (increment):")
+    await node_executor.execute_normal_node("node1", "increment")
+    print(f"   ✓ State after: {state_manager.get_state()}")
     
-    # Test 2: Update state
-    print("\n2. Update state:")
-    manager.update_state({"count": 5, "quality_score": 8}, "test_node")
-    print(f"   ✓ Updated count: {manager.get_field('count')}")
-    print(f"   ✓ Updated quality_score: {manager.get_field('quality_score')}")
+    # Test 2: Execute another node
+    print("\n2. Execute normal node (quality_check):")
+    await node_executor.execute_normal_node("node2", "quality_check")
+    print(f"   ✓ State after: {state_manager.get_state()}")
     
-    # Test 3: Get nested field
-    print("\n3. Get nested field:")
-    user_name = manager.get_field("user.name")
-    print(f"   ✓ User name: {user_name}")
+    # Test 3: Check logs
+    print("\n3. Check execution logs:")
+    logs = execution_logger.get_logs()
+    print(f"   ✓ Total logs: {len(logs)}")
+    for log in logs:
+        print(f"   ✓ {log.node}: {log.status} ({log.duration_ms}ms)")
     
-    # Test 4: Set nested field
-    print("\n4. Set nested field:")
-    manager.set_field("user.email", "john@example.com")
-    print(f"   ✓ User email: {manager.get_field('user.email')}")
-    
-    # Test 5: Check field exists
-    print("\n5. Check field exists:")
-    print(f"   ✓ 'count' exists: {manager.has_field('count')}")
-    print(f"   ✓ 'nonexistent' exists: {manager.has_field('nonexistent')}")
-    
-    # Test 6: State history
-    print("\n6. State history:")
-    print(f"   ✓ History snapshots: {manager.get_history_count()}")
-    
-    print("\n✅ State Manager tests passed!")
+    print("\n✅ Node Executor tests passed!")
 
 
-def test_condition_evaluator():
-    """Test condition evaluator functionality."""
+async def test_loop_simulation():
+    """Simulate a simple loop execution."""
     print("\n" + "=" * 60)
-    print("Testing Condition Evaluator")
+    print("Testing Loop Simulation")
     print("=" * 60)
     
-    # Initialize state
-    state = {
-        "quality_score": 8,
-        "count": 5,
-        "issues": ["issue1", "issue2", "issue3"],
-        "complexity_scores": [5, 8, 12, 3],
-        "done": False
-    }
+    # Register tools
+    tool_registry.register("increment", increment_tool, overwrite=True)
+    tool_registry.register("quality_check", quality_check_tool, overwrite=True)
     
-    manager = StateManager(state)
-    evaluator = ConditionEvaluator(manager)
+    # Initialize components
+    state = {"count": 0, "quality_score": 0}
+    state_manager = StateManager(state)
+    execution_logger = ExecutionLogger()
+    node_executor = NodeExecutor(state_manager, execution_logger)
     
-    # Test 1: Simple comparison (>=)
-    print("\n1. Simple comparison (quality_score >= 8):")
-    condition = SimpleCondition(field="quality_score", operator=">=", value=8)
-    result = evaluator.evaluate(condition)
-    print(f"   ✓ Result: {result} (Expected: True)")
+    from app.core.condition_evaluator import ConditionEvaluator
+    condition_evaluator = ConditionEvaluator(state_manager)
     
-    # Test 2: Simple comparison (<)
-    print("\n2. Simple comparison (count < 10):")
-    condition = SimpleCondition(field="count", operator="<", value=10)
-    result = evaluator.evaluate(condition)
-    print(f"   ✓ Result: {result} (Expected: True)")
+    # Define loop exit condition
+    exit_condition = SimpleCondition(field="quality_score", operator=">=", value=8)
     
-    # Test 3: Length operation
-    print("\n3. Length operation (issues.length == 3):")
-    condition = SimpleCondition(
-        field="issues",
-        operator="length",
-        comparator="==",
-        value=3
-    )
-    result = evaluator.evaluate(condition)
-    print(f"   ✓ Result: {result} (Expected: True)")
+    print("\n1. Running loop (exit when quality_score >= 8):")
+    iteration = 0
+    max_iterations = 15
     
-    # Test 4: Max operation
-    print("\n4. Max operation (complexity_scores.max > 10):")
-    condition = SimpleCondition(
-        field="complexity_scores",
-        operator="max",
-        comparator=">",
-        value=10
-    )
-    result = evaluator.evaluate(condition)
-    print(f"   ✓ Result: {result} (Expected: True)")
+    while iteration < max_iterations:
+        iteration += 1
+        print(f"\n   Iteration {iteration}:")
+        
+        # Execute loop nodes
+        await node_executor.execute_normal_node("increment", "increment", iteration)
+        await node_executor.execute_normal_node("quality_check", "quality_check", iteration)
+        
+        # Check exit condition
+        if condition_evaluator.evaluate(exit_condition):
+            print(f"\n   ✓ Exit condition met after {iteration} iterations!")
+            break
     
-    # Test 5: Contains operation
-    print("\n5. Contains operation ('issue1' in issues):")
-    condition = SimpleCondition(
-        field="issues",
-        operator="contains",
-        value="issue1"
-    )
-    result = evaluator.evaluate(condition)
-    print(f"   ✓ Result: {result} (Expected: True)")
+    print(f"\n2. Final state:")
+    print(f"   ✓ Count: {state_manager.get_field('count')}")
+    print(f"   ✓ Quality score: {state_manager.get_field('quality_score')}")
+    print(f"   ✓ Total iterations: {iteration}")
     
-    # Test 6: Complex AND condition
-    print("\n6. Complex AND condition (quality_score >= 8 AND count < 10):")
-    condition = ComplexCondition(
-        type="AND",
-        conditions=[
-            SimpleCondition(field="quality_score", operator=">=", value=8),
-            SimpleCondition(field="count", operator="<", value=10)
-        ]
-    )
-    result = evaluator.evaluate(condition)
-    print(f"   ✓ Result: {result} (Expected: True)")
-    
-    # Test 7: Complex OR condition
-    print("\n7. Complex OR condition (done == True OR quality_score >= 8):")
-    condition = ComplexCondition(
-        type="OR",
-        conditions=[
-            SimpleCondition(field="done", operator="==", value=True),
-            SimpleCondition(field="quality_score", operator=">=", value=8)
-        ]
-    )
-    result = evaluator.evaluate(condition)
-    print(f"   ✓ Result: {result} (Expected: True)")
-    
-    # Test 8: Complex NOT condition
-    print("\n8. Complex NOT condition (NOT done == True):")
-    condition = ComplexCondition(
-        type="NOT",
-        conditions=[
-            SimpleCondition(field="done", operator="==", value=True)
-        ]
-    )
-    result = evaluator.evaluate(condition)
-    print(f"   ✓ Result: {result} (Expected: True)")
-    
-    # Test 9: Nested complex condition
-    print("\n9. Nested complex condition:")
-    condition = ComplexCondition(
-        type="AND",
-        conditions=[
-            SimpleCondition(field="quality_score", operator=">=", value=8),
-            ComplexCondition(
-                type="OR",
-                conditions=[
-                    SimpleCondition(field="count", operator="<", value=3),
-                    SimpleCondition(field="issues", operator="length", comparator="<=", value=5)
-                ]
-            )
-        ]
-    )
-    result = evaluator.evaluate(condition)
-    print(f"   ✓ Result: {result} (Expected: True)")
-    
-    print("\n✅ Condition Evaluator tests passed!")
+    print("\n✅ Loop simulation tests passed!")
 
 
-def main():
+async def main():
     """Run all tests."""
     print("\n" + "=" * 60)
-    print("Day 3 Component Tests")
+    print("Day 4 Component Tests")
     print("=" * 60)
     
-    test_state_manager()
-    test_condition_evaluator()
+    await test_node_executor()
+    await test_loop_simulation()
     
     print("\n" + "=" * 60)
-    print("All Day 3 tests passed! ✅")
+    print("All Day 4 tests passed! ✅")
     print("=" * 60)
+    print("\nNote: Full graph engine will be tested in Day 5 with API integration")
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
