@@ -13,6 +13,7 @@ from app.config import settings
 from app.db.session import init_db, close_db
 from app.api import routes
 
+from app import tools
 
 # Configure logging
 logging.basicConfig(
@@ -75,7 +76,8 @@ async def root() -> dict[str, str]:
     return {
         "status": "active",
         "message": f"{settings.app_name} is running",
-        "version": "1.0.0"
+        "version": "1.0.0",
+        "docs": "/docs"
     }
 
 

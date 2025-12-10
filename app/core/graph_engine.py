@@ -316,7 +316,9 @@ class GraphEngine:
             await self._update_run_status(
                 run_id=run_id,
                 iteration_count=iteration,
-                current_node=f"{node_def.name} (iteration {iteration})"
+                current_node=f"{node_def.name} (iteration {iteration})",
+                state=state_manager.get_state(),
+                logs=execution_logger.get_logs_dict()
             )
             
             # Execute all nodes in loop
@@ -324,7 +326,7 @@ class GraphEngine:
                 child_node = nodes_dict.get(child_node_name)
                 
                 if not child_node:
-                    raise ValueError(f"Loop child node '{child_node_name}' not found")
+                    raise ValueError(f"Loop child node '{child_node_name}' not found in nodes dictionary")
                 
                 # Execute child node
                 if child_node.type == "normal":
@@ -335,11 +337,19 @@ class GraphEngine:
                     )
                 else:
                     raise ValueError(f"Nested loop nodes not supported: {child_node_name}")
+                
+                # Update database after each child node execution
+                await self._update_run_status(
+                    run_id=run_id,
+                    current_node=f"{node_def.name} (iteration {iteration}) - {child_node_name}",
+                    state=state_manager.get_state(),
+                    logs=execution_logger.get_logs_dict()
+                )
             
-            # Check exit condition
+            # Check exit condition after all loop nodes execute
             condition_met = condition_evaluator.evaluate(node_def.loop_condition)
             
-            logger.info(f"Loop condition evaluated to: {condition_met}")
+            logger.info(f"Loop condition evaluated to: {condition_met} (quality_score: {state_manager.get_field('quality_score', 0)})")
             
             if condition_met:
                 logger.info(f"Loop '{node_def.name}' exit condition met after {iteration} iterations")

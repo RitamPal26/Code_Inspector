@@ -81,12 +81,14 @@ class ExecutionLogger:
     def get_logs_dict(self) -> list[dict[str, Any]]:
         """
         Get logs as dictionary list for JSON serialization.
-        
+    
+        Converts all datetime objects to ISO format strings.
+    
         Returns:
             list[dict[str, Any]]: Logs in dictionary format
         """
-        return [log.model_dump() for log in self.logs]
-    
+        return [log.model_dump(mode='json') for log in self.logs]
+
     def clear_logs(self) -> None:
         """Clear all logs."""
         self.logs = []
